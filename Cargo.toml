@@ -1,0 +1,13 @@
+[package]
+name = "mocha"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "mocha"
+path = "src/main.rs"
+
+[dependencies]
+iced = "0.14.0"
+sysinfo = "0.40.1"
+anyhow = "1.0.104"
