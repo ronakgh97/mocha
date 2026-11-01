@@ -3,9 +3,8 @@ pub struct UI {
     app_tagline: String,
 
     cpu_usage: f32,
-    cpu_freq: f32,
-
     memory_usage: f32,
+    swap_usage: f32,
     disk_usage: f32,
 
     network_tx: f32,
@@ -19,9 +18,8 @@ impl Default for UI {
             app_tagline: "a sneak peak into your machine.".to_string(),
 
             cpu_usage: 0.0,
-            cpu_freq: 0.0,
-
             memory_usage: 0.0,
+            swap_usage: 0.0,
             disk_usage: 0.0,
 
             network_tx: 0.0,
