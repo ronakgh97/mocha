@@ -7,7 +7,7 @@ fn main() -> Result<()> {
     let net = sysinfo::Networks::new()?;
     let disks = sysinfo::Disks::new()?;
 
-    let (rx, handle) = monitor::init_background_monitoring(
+    let (rx, handle) = monitor::start_background_monitoring(
         sys,
         net,
         disks,
@@ -15,27 +15,21 @@ fn main() -> Result<()> {
         std::time::Duration::from_millis(100),
     )?;
 
-    loop {
-        match rx.recv() {
-            Ok(snapshot) => {
-                println!(
-                    "CPU Usage: {:.2}%, Memory Usage: {:.2}%, Swap Usage: {:.2}%, Disk Usage: {:.2}%, Network TX: {:.2} bytes, Network RX: {:.2} bytes",
-                    snapshot.cpu_usage,
-                    snapshot.memory_usage,
-                    snapshot.swap_usage,
-                    snapshot.disk_usage,
-                    snapshot.network_tx,
-                    snapshot.network_rx
-                );
-            }
-            Err(e) => {
-                eprintln!("Error receiving metrics snapshot: {}", e);
-                break;
-            }
-        }
-    }
+    let options = eframe::NativeOptions {
+        viewport: eframe::egui::ViewportBuilder::default()
+            .with_decorations(false)
+            .with_transparent(false)
+            .with_always_on_top()
+            .with_inner_size([260.0, 180.0])
+            .with_position([1100.0, 30.0]),
+        ..Default::default()
+    };
+
+    eframe::run_native("mocha", options, Box::new(|cc| Ok(Box::new(ui::UI::new(cc, rx)))))
+        .map_err(|e| anyhow::anyhow!("Failed to run: {}", e))?;
+
     handle
         .join()
-        .map_err(|e| anyhow::anyhow!("Monitoring thread panicked: {:?}", e))?;
+        .map_err(|e| anyhow::anyhow!("Monitor thread panicked: {:?}", e))?;
     Ok(())
 }

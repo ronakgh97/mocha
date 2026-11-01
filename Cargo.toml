@@ -1,6 +1,6 @@
 [package]
 name = "mocha"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
 
 [[bin]]
@@ -8,6 +8,7 @@ name = "mocha"
 path = "src/main.rs"
 
 [dependencies]
-iced = "0.14.0"
+eframe = "0.37.0"
+crossbeam-channel = "0.5.17"
 sysinfo = "0.40.1"
 anyhow = "1.0.104"

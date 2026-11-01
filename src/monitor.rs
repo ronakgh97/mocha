@@ -1,4 +1,5 @@
-use std::sync::mpsc::Receiver;
+use crossbeam_channel::Receiver;
+use crossbeam_channel::unbounded;
 use std::thread::JoinHandle;
 use sysinfo::{CpuRefreshKind, Disks, Networks, System};
 
@@ -9,20 +10,20 @@ pub struct MetricsSnapshot {
     pub swap_usage: f32,
     pub disk_usage: f32,
 
-    pub network_tx: f32,
-    pub network_rx: f32,
+    pub network_tx: f32, // in Mbps
+    pub network_rx: f32, // in Mbps
 }
 
 /// Initializes background monitoring of system metrics and returns a receiver
 /// for the metrics snapshots and a handle to the monitoring thread.
-pub fn init_background_monitoring(
+pub fn start_background_monitoring(
     mut sys: System,
     mut net: Networks,
     mut disk: Disks,
     warmup_count: usize,
     refresh_interval: std::time::Duration,
 ) -> anyhow::Result<(Receiver<MetricsSnapshot>, JoinHandle<()>)> {
-    let (mpsc_tx, mpsc_rx) = std::sync::mpsc::channel::<MetricsSnapshot>();
+    let (mpsc_tx, mpsc_rx) = unbounded();
 
     // warm up before starting the monitoring thread
     for _ in 0..warmup_count {
@@ -76,9 +77,12 @@ pub fn init_background_monitoring(
                 0.0
             };
 
-            let (network_tx, network_rx) = net.iter().fold((0u64, 0u64), |(tx, rx), (_, d)| {
-                (tx + d.transmitted(), rx + d.received())
-            });
+            let (mut network_tx, mut network_rx) =
+                net.iter().fold((0u64, 0u64), |(tx, rx), (_, d)| {
+                    (tx + d.transmitted(), rx + d.received())
+                });
+            network_tx /= 1_000_000;
+            network_rx /= 1_000_000;
 
             // send to UI thread for rendering
             let snapshot = MetricsSnapshot {
