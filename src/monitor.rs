@@ -1,28 +1,34 @@
+use anyhow::Result;
 use crossbeam_channel::Receiver;
 use crossbeam_channel::unbounded;
+use std::sync::{Arc, LazyLock};
 use std::thread::JoinHandle;
+use std::time::Duration;
 use sysinfo::{CpuRefreshKind, Disks, Networks, System};
 
 #[derive(Debug, Clone, Copy)]
 pub struct MetricsSnapshot {
+    pub uptime: u64,
+
     pub cpu_usage: f32,
     pub memory_usage: f32,
+
     pub swap_usage: f32,
     pub disk_usage: f32,
 
-    pub network_tx: f32, // in Mbps
-    pub network_rx: f32, // in Mbps
+    pub total_network_tx: u64,
+    pub total_network_rx: u64,
 }
 
 /// Initializes background monitoring of system metrics and returns a receiver
 /// for the metrics snapshots and a handle to the monitoring thread.
-pub fn start_background_monitoring(
+pub fn start_metrics_monitoring(
     mut sys: System,
     mut net: Networks,
     mut disk: Disks,
-    warmup_count: usize,
-    refresh_interval: std::time::Duration,
-) -> anyhow::Result<(Receiver<MetricsSnapshot>, JoinHandle<()>)> {
+    warmup_count: u64,
+    refresh_interval: Duration,
+) -> Result<(Receiver<MetricsSnapshot>, JoinHandle<Result<()>>)> {
     let (mpsc_tx, mpsc_rx) = unbounded();
 
     // warm up before starting the monitoring thread
@@ -34,7 +40,8 @@ pub fn start_background_monitoring(
         disk.refresh(true);
     }
 
-    let handle = std::thread::spawn(move || {
+    let handle = std::thread::spawn(move || -> Result<()> {
+        sys.refresh_all();
         loop {
             // only refresh the things needed
             sys.refresh_cpu_specifics(CpuRefreshKind::nothing().with_usage());
@@ -43,6 +50,8 @@ pub fn start_background_monitoring(
             disk.refresh(false);
 
             // collect metrics
+            let uptime = System::uptime()?;
+
             let cpu_usage = {
                 let cpus = sys.cpus();
                 let cpu_count = cpus.len();
@@ -77,24 +86,25 @@ pub fn start_background_monitoring(
                 0.0
             };
 
-            let (mut network_tx, mut network_rx) =
+            let (total_network_tx, total_network_rx) =
                 net.iter().fold((0u64, 0u64), |(tx, rx), (_, d)| {
-                    (tx + d.transmitted(), rx + d.received())
+                    (tx + d.total_transmitted(), rx + d.total_received())
                 });
-            network_tx /= 1_000_000;
-            network_rx /= 1_000_000;
 
             // send to UI thread for rendering
             let snapshot = MetricsSnapshot {
+                uptime,
                 cpu_usage,
                 memory_usage,
                 swap_usage,
                 disk_usage,
-                network_tx: network_tx as f32,
-                network_rx: network_rx as f32,
+                total_network_tx,
+                total_network_rx,
             };
             if mpsc_tx.send(snapshot).is_err() {
-                break;
+                return Err(anyhow::anyhow!(
+                    "Failed to send metrics snapshot to UI thread"
+                ));
             }
 
             std::thread::sleep(refresh_interval);
@@ -103,4 +113,25 @@ pub fn start_background_monitoring(
     });
 
     Ok((mpsc_rx, handle))
+}
+
+pub static KEYPRESS_COUNT: LazyLock<Arc<std::sync::atomic::AtomicU64>> =
+    LazyLock::new(|| Arc::new(std::sync::atomic::AtomicU64::new(0)));
+
+pub static MOUSECLICK_COUNT: LazyLock<Arc<std::sync::atomic::AtomicU64>> =
+    LazyLock::new(|| Arc::new(std::sync::atomic::AtomicU64::new(0)));
+
+pub fn start_keypress_monitoring() -> Result<()> {
+    let _ = std::thread::spawn(|| -> Result<()> {
+        let _result = rdev::listen(|event| {
+            if let rdev::EventType::KeyPress(_) = event.event_type {
+                KEYPRESS_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            }
+            if let rdev::EventType::ButtonPress(_) = event.event_type {
+                MOUSECLICK_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            }
+        });
+        Ok(())
+    });
+    Ok(())
 }
