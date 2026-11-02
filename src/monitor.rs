@@ -1,6 +1,9 @@
 use anyhow::Result;
 use crossbeam_channel::Receiver;
 use crossbeam_channel::unbounded;
+use rdev::Button;
+use rdev::Key;
+use std::collections::HashSet;
 use std::sync::{Arc, LazyLock};
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -121,17 +124,53 @@ pub static KEYPRESS_COUNT: LazyLock<Arc<std::sync::atomic::AtomicU64>> =
 pub static MOUSECLICK_COUNT: LazyLock<Arc<std::sync::atomic::AtomicU64>> =
     LazyLock::new(|| Arc::new(std::sync::atomic::AtomicU64::new(0)));
 
-pub fn start_keypress_monitoring() -> Result<()> {
-    let _ = std::thread::spawn(|| -> Result<()> {
-        let _result = rdev::listen(|event| {
-            if let rdev::EventType::KeyPress(_) = event.event_type {
+#[derive(Debug, PartialEq, Eq)]
+enum InputEvent {
+    Key,
+    Button,
+}
+
+#[derive(Default)]
+struct InputEventTracker {
+    keys_down: HashSet<Key>,
+    buttons_down: HashSet<Button>,
+}
+
+impl InputEventTracker {
+    fn track(&mut self, event: rdev::EventType) -> Option<InputEvent> {
+        match event {
+            rdev::EventType::KeyPress(key) => self.keys_down.insert(key).then_some(InputEvent::Key),
+            rdev::EventType::KeyRelease(key) => {
+                self.keys_down.remove(&key);
+                None
+            }
+            rdev::EventType::ButtonPress(button) => self
+                .buttons_down
+                .insert(button)
+                .then_some(InputEvent::Button),
+            rdev::EventType::ButtonRelease(button) => {
+                self.buttons_down.remove(&button);
+                None
+            }
+            _ => None,
+        }
+    }
+}
+
+pub fn start_keyboard_mouse_monitoring() -> Result<()> {
+    std::thread::spawn(|| {
+        let mut tracker = InputEventTracker::default();
+        if let Err(e) = rdev::listen(move |event| match tracker.track(event.event_type) {
+            Some(InputEvent::Key) => {
                 KEYPRESS_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             }
-            if let rdev::EventType::ButtonPress(_) = event.event_type {
+            Some(InputEvent::Button) => {
                 MOUSECLICK_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             }
-        });
-        Ok(())
+            None => {}
+        }) {
+            eprintln!("Failed to start keyboard/mouse listener: {e:?}");
+        }
     });
     Ok(())
 }

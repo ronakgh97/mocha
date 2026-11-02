@@ -1,6 +1,6 @@
-pub mod monitor;
+mod monitor;
 mod theme;
-pub mod ui;
+mod ui;
 
 use anyhow::Result;
 use std::sync::{
@@ -26,21 +26,21 @@ fn main() -> Result<()> {
         24,
         std::time::Duration::from_millis(750),
     )?;
-    monitor::start_keypress_monitoring()?;
+    monitor::start_keyboard_mouse_monitoring()?;
 
     let options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()
             .with_decorations(false)
             .with_transparent(false)
             .with_always_on_top()
-            .with_inner_size([210.0, 200.0]),
+            .with_inner_size([225.0, 210.0]),
         ..Default::default()
     };
 
     eframe::run_native(
         "mocha ☕",
         options,
-        Box::new(|cc| Ok(Box::new(ui::UI::new(cc, rx, shutdown_requested)))),
+        Box::new(|cc| Ok(Box::new(ui::Gui::new(cc, rx, shutdown_requested)))),
     )?;
 
     if let Err(e) = metrics_handle.join() {

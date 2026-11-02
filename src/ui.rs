@@ -1,16 +1,18 @@
 use crate::monitor::{KEYPRESS_COUNT, MOUSECLICK_COUNT, MetricsSnapshot};
+use crate::theme::MochaTheme;
 use crossbeam_channel::Receiver;
+use eframe::CreationContext;
 use eframe::egui;
-use eframe::egui::{Color32, RichText, Sense, Ui, ViewportCommand, Visuals};
+use eframe::egui::{RichText, Sense, Ui, ViewportCommand, Visuals};
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
 };
 
-pub struct UI {
+pub struct Gui {
     app_name: String,
     app_tagline: String,
-
+    app_theme: MochaTheme,
     uptime: u64,
 
     cpu_usage: f32,
@@ -25,9 +27,9 @@ pub struct UI {
     shutdown_requested: Arc<AtomicBool>,
 }
 
-impl UI {
+impl Gui {
     pub fn new(
-        cc: &eframe::CreationContext<'_>,
+        cc: &CreationContext<'_>,
         rx_from_bg: Receiver<MetricsSnapshot>,
         shutdown_requested: Arc<AtomicBool>,
     ) -> Self {
@@ -36,6 +38,7 @@ impl UI {
         Self {
             app_name: "mocha☕".to_string(),
             app_tagline: "a sneak peak into your machine.".to_string(),
+            app_theme: MochaTheme::default(),
             uptime: 0,
             cpu_usage: 0.0,
             memory_usage: 0.0,
@@ -50,7 +53,7 @@ impl UI {
     }
 }
 
-impl eframe::App for UI {
+impl eframe::App for Gui {
     fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
         // check if shutdown has been requested
         if self.shutdown_requested.load(Ordering::Relaxed) {
@@ -69,18 +72,12 @@ impl eframe::App for UI {
             self.total_network_rx = snap.total_network_rx;
         }
 
-        // base theme
-        let text = Color32::from_rgb(240, 224, 213);
-        let dim = Color32::from_rgb(160, 140, 135);
-        let accent_1 = Color32::from_rgb(235, 170, 165);
-        let accent_2 = Color32::from_rgb(235, 200, 165);
-
         // let width = ui.available_width();
         // let height = ui.available_height();
         egui::Frame::default()
-            .fill(Color32::from_rgb(35, 29, 31))
+            .fill(self.app_theme.background)
             .corner_radius(16.0)
-            .inner_margin(10.0)
+            .inner_margin(12.0)
             .show(ui, |ui| {
                 // enable dragging the window by clicking anywhere on the window
                 if ui
@@ -103,17 +100,17 @@ impl eframe::App for UI {
                     ui.label(
                         RichText::new(&self.app_name)
                             .size(16.0)
-                            .color(accent_1)
+                            .color(self.app_theme.caramel)
                             .strong()
                             .monospace(),
                     );
                     ui.add_space(2.0);
-                    ui.label(RichText::new(ascii).size(14.0).color(accent_2));
+                    ui.label(RichText::new(ascii).size(14.0).color(self.app_theme.rose));
                 });
                 ui.label(
                     RichText::new(&self.app_tagline)
                         .size(12.0)
-                        .color(dim)
+                        .color(self.app_theme.text_muted)
                         .weak()
                         .italics(),
                 );
@@ -123,20 +120,33 @@ impl eframe::App for UI {
                     ui.label(
                         RichText::new("Uptime")
                             .size(12.0)
-                            .color(accent_2)
+                            .color(self.app_theme.text_secondary)
                             .monospace(),
                     );
                     ui.add_space(2.0);
-                    ui.label(RichText::new(fmt_time(self.uptime)).size(14.0).color(text));
+                    ui.label(
+                        RichText::new(fmt_time(self.uptime))
+                            .size(14.0)
+                            .color(self.app_theme.text_primary),
+                    );
                 });
                 ui.add_space(3.0);
 
                 // metrics layout
                 let metric = |ui: &mut Ui, label: &str, value: String| {
                     ui.horizontal(|ui| {
-                        ui.label(RichText::new(label).size(12.0).color(accent_2).monospace());
+                        ui.label(
+                            RichText::new(label)
+                                .size(12.0)
+                                .color(self.app_theme.text_secondary)
+                                .monospace(),
+                        );
                         ui.add_space(2.0);
-                        ui.label(RichText::new(value).size(14.0).color(text));
+                        ui.label(
+                            RichText::new(value)
+                                .size(14.0)
+                                .color(self.app_theme.text_primary),
+                        );
                     });
                     ui.add_space(4.0);
                 };
@@ -163,14 +173,14 @@ impl eframe::App for UI {
                 ui.horizontal(|ui| {
                     metric(
                         ui,
-                        "KP",
+                        "TAPS",
                         KEYPRESS_COUNT
                             .load(std::sync::atomic::Ordering::Relaxed)
                             .to_string(),
                     );
                     metric(
                         ui,
-                        "MC",
+                        "CLKS",
                         MOUSECLICK_COUNT
                             .load(std::sync::atomic::Ordering::Relaxed)
                             .to_string(),
@@ -181,7 +191,7 @@ impl eframe::App for UI {
                 ui.label(
                     RichText::new("brewed with love ♡.")
                         .size(12.0)
-                        .color(dim)
+                        .color(self.app_theme.text_muted)
                         .weak()
                         .italics(),
                 );
@@ -191,7 +201,7 @@ impl eframe::App for UI {
     }
 
     fn clear_color(&self, _visuals: &Visuals) -> [f32; 4] {
-        Color32::from_rgb(35, 29, 31).to_normalized_gamma_f32()
+        self.app_theme.background.to_normalized_gamma_f32()
     }
 }
 
