@@ -11,8 +11,8 @@ fn main() -> Result<()> {
         sys,
         net,
         disks,
-        5,
-        std::time::Duration::from_millis(100),
+        12,
+        std::time::Duration::from_secs(1),
     )?;
 
     let options = eframe::NativeOptions {
@@ -20,16 +20,18 @@ fn main() -> Result<()> {
             .with_decorations(false)
             .with_transparent(false)
             .with_always_on_top()
-            .with_inner_size([260.0, 180.0])
-            .with_position([1100.0, 30.0]),
+            .with_inner_size([200.0, 140.0]),
         ..Default::default()
     };
 
-    eframe::run_native("mocha", options, Box::new(|cc| Ok(Box::new(ui::UI::new(cc, rx)))))
-        .map_err(|e| anyhow::anyhow!("Failed to run: {}", e))?;
+    eframe::run_native(
+        "mocha",
+        options,
+        Box::new(|cc| Ok(Box::new(ui::UI::new(cc, rx)))),
+    )?;
 
-    handle
-        .join()
-        .map_err(|e| anyhow::anyhow!("Monitor thread panicked: {:?}", e))?;
+    if let Err(e) = handle.join() {
+        eprintln!("Error joining background monitoring thread: {:?}", e);
+    }
     Ok(())
 }

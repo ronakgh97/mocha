@@ -50,12 +50,15 @@ impl eframe::App for UI {
 
         let text = Color32::from_rgb(240, 224, 213);
         let dim = Color32::from_rgb(160, 140, 135);
-        let accent = Color32::from_rgb(235, 170, 165);
+        let accent_1 = Color32::from_rgb(235, 170, 165);
+        let accent_2 = Color32::from_rgb(235, 200, 165);
 
+        // let width = ui.available_width();
+        // let height = ui.available_height();
         egui::Frame::NONE
             .fill(Color32::from_rgb(35, 29, 31))
             .corner_radius(16.0)
-            .inner_margin(16.0)
+            .inner_margin(12.0)
             .show(ui, |ui| {
                 // enable dragging the window by clicking anywhere on the window
                 if ui
@@ -65,46 +68,51 @@ impl eframe::App for UI {
                     ui.ctx().send_viewport_cmd(ViewportCommand::StartDrag);
                 }
 
-                ui.horizontal(|ui| {
-                    ui.label(
-                        RichText::new(&self.app_name)
-                            .size(16.0)
-                            .color(text)
-                            .strong(),
-                    );
-                });
-                ui.label(RichText::new(&self.app_tagline).size(12.0).color(dim));
-                ui.add_space(14.0);
+                // app title and tagline
+                ui.label(
+                    RichText::new(&self.app_name)
+                        .size(16.0)
+                        .color(accent_1)
+                        .strong()
+                        .monospace(),
+                );
+                ui.label(
+                    RichText::new(&self.app_tagline)
+                        .size(12.0)
+                        .color(dim)
+                        .weak()
+                        .italics(),
+                );
+                ui.add_space(4.0);
 
+                // metrics layout
                 let metric = |ui: &mut Ui, label: &str, value: String| {
-                    ui.vertical(|ui| {
-                        ui.label(RichText::new(label).size(10.0).color(dim));
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new(label).size(12.0).color(accent_2).monospace());
+                        ui.add_space(2.0);
                         ui.label(RichText::new(value).size(14.0).color(text));
                     });
-                    ui.add_space(10.0);
+                    ui.add_space(5.0);
                 };
 
+                // display all metrics
                 ui.horizontal(|ui| {
                     metric(ui, "CPU", format!("{:.0}%", self.cpu_usage));
                     metric(ui, "MEM", format!("{:.0}%", self.memory_usage));
+                });
+                ui.add_space(4.0);
+
+                ui.horizontal(|ui| {
                     metric(ui, "SWP", format!("{:.0}%", self.swap_usage));
                     metric(ui, "DSK", format!("{:.0}%", self.disk_usage));
                 });
-                ui.add_space(8.0);
+                ui.add_space(4.0);
 
                 ui.horizontal(|ui| {
-                    ui.label(
-                        RichText::new(format!("TX ↑ {:.2} Mbps", self.network_tx))
-                            .size(12.0)
-                            .color(accent),
-                    );
-                    ui.add_space(12.0);
-                    ui.label(
-                        RichText::new(format!("RX ↓ {:.2} Mbps", self.network_rx))
-                            .size(12.0)
-                            .color(text),
-                    );
+                    metric(ui, "TX", format!("{:.1} Mbps", self.network_tx));
+                    metric(ui, "RX", format!("{:.1} Mbps", self.network_rx));
                 });
+                ui.add_space(4.0);
             });
 
         ui.ctx().request_repaint();
