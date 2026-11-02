@@ -2,11 +2,21 @@ pub mod monitor;
 pub mod ui;
 
 use anyhow::Result;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 
 fn main() -> Result<()> {
     let sys = sysinfo::System::new()?;
     let net = sysinfo::Networks::new()?;
     let disks = sysinfo::Disks::new()?;
+    let shutdown_requested = Arc::new(AtomicBool::new(false));
+    let shutdown_for_handler = Arc::clone(&shutdown_requested);
+
+    ctrlc::set_handler(move || {
+        shutdown_for_handler.store(true, Ordering::Relaxed);
+    })?;
 
     let (rx, handle) = monitor::start_background_monitoring(
         sys,
@@ -29,7 +39,7 @@ fn main() -> Result<()> {
     eframe::run_native(
         "mocha ☕",
         options,
-        Box::new(|cc| Ok(Box::new(ui::UI::new(cc, rx)))),
+        Box::new(|cc| Ok(Box::new(ui::UI::new(cc, rx, shutdown_requested)))),
     )?;
 
     if let Err(e) = handle.join() {

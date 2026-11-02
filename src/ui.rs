@@ -2,6 +2,10 @@ use crate::monitor::MetricsSnapshot;
 use crossbeam_channel::Receiver;
 use eframe::egui;
 use eframe::egui::{Color32, RichText, Sense, Ui, ViewportCommand, Visuals};
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 
 pub struct UI {
     app_name: String,
@@ -15,10 +19,15 @@ pub struct UI {
     network_tx: f32, // in Mbps
     network_rx: f32, // in Mbps
     rx_from_bg: Receiver<MetricsSnapshot>,
+    shutdown_requested: Arc<AtomicBool>,
 }
 
 impl UI {
-    pub fn new(cc: &eframe::CreationContext<'_>, rx: Receiver<MetricsSnapshot>) -> Self {
+    pub fn new(
+        cc: &eframe::CreationContext<'_>,
+        rx_from_bg: Receiver<MetricsSnapshot>,
+        shutdown_requested: Arc<AtomicBool>,
+    ) -> Self {
         let ctx = cc.egui_ctx.clone();
         ctx.request_repaint();
         Self {
@@ -32,13 +41,21 @@ impl UI {
 
             network_tx: 0.0,
             network_rx: 0.0,
-            rx_from_bg: rx,
+            rx_from_bg,
+            shutdown_requested,
         }
     }
 }
 
 impl eframe::App for UI {
     fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
+        // check if shutdown has been requested
+        if self.shutdown_requested.load(Ordering::Relaxed) {
+            ui.ctx().send_viewport_cmd(ViewportCommand::Close);
+            return;
+        }
+
+        // try draining the channel to get the latest metrics snapshot
         while let Ok(snap) = self.rx_from_bg.try_recv() {
             self.cpu_usage = snap.cpu_usage;
             self.memory_usage = snap.memory_usage;
@@ -48,6 +65,7 @@ impl eframe::App for UI {
             self.network_rx = snap.network_rx;
         }
 
+        // base theme
         let text = Color32::from_rgb(240, 224, 213);
         let dim = Color32::from_rgb(160, 140, 135);
         let accent_1 = Color32::from_rgb(235, 170, 165);
@@ -70,7 +88,7 @@ impl eframe::App for UI {
 
                 let ascii = match self.cpu_usage {
                     x if x >= 80.0 => "(•ˋ_ˊ•)?!",
-                    x if x >= 60.0 => "(✿◡‿◡)",
+                    x if x >= 60.0 => "(✿◡‿◡✿)",
                     x if x >= 40.0 => "(✿◕‿◕✿)",
                     _ => "(◕‿◕)",
                 };
@@ -126,7 +144,7 @@ impl eframe::App for UI {
                 ui.add_space(2.0);
 
                 ui.label(
-                    RichText::new("brewed with love ♡")
+                    RichText::new("brewed with love ♡.")
                         .size(12.0)
                         .color(dim)
                         .weak()

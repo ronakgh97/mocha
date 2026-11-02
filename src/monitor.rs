@@ -98,6 +98,7 @@ pub fn start_background_monitoring(
             }
 
             std::thread::sleep(refresh_interval);
+            std::thread::yield_now();
         }
     });
 
