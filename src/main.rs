@@ -33,7 +33,7 @@ fn main() -> Result<()> {
             .with_decorations(false)
             .with_transparent(false)
             .with_always_on_top()
-            .with_inner_size([210.0, 180.0]),
+            .with_inner_size([210.0, 200.0]),
         ..Default::default()
     };
 

@@ -1,4 +1,4 @@
-use crate::monitor::MetricsSnapshot;
+use crate::monitor::{KEYPRESS_COUNT, MOUSECLICK_COUNT, MetricsSnapshot};
 use crossbeam_channel::Receiver;
 use eframe::egui;
 use eframe::egui::{Color32, RichText, Sense, Ui, ViewportCommand, Visuals};
@@ -91,13 +91,14 @@ impl eframe::App for UI {
                 }
 
                 let ascii = match self.cpu_usage {
-                    x if x >= 80.0 => "(• ˋ_ˊ •)?!",
+                    x if x >= 80.0 => "(•ˋ _ ˊ•)",
                     x if x >= 60.0 => "(✿◡‿◡✿)",
                     x if x >= 40.0 => "(✿◕‿◕✿)",
                     _ => "(◕‿◕)",
                 };
 
-                // app title and tagline
+                // app title and ascii
+                // app tagline
                 ui.horizontal(|ui| {
                     ui.label(
                         RichText::new(&self.app_name)
@@ -116,14 +117,19 @@ impl eframe::App for UI {
                         .weak()
                         .italics(),
                 );
-                ui.add_space(2.0);
-                ui.label(
-                    RichText::new(format!("Uptime: {}", fmt_time(self.uptime)))
-                        .size(12.0)
-                        .color(text)
-                        .weak(),
-                );
-                ui.add_space(4.0);
+
+                // uptime
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new("Uptime")
+                            .size(12.0)
+                            .color(accent_2)
+                            .monospace(),
+                    );
+                    ui.add_space(2.0);
+                    ui.label(RichText::new(fmt_time(self.uptime)).size(14.0).color(text));
+                });
+                ui.add_space(3.0);
 
                 // metrics layout
                 let metric = |ui: &mut Ui, label: &str, value: String| {
@@ -152,7 +158,25 @@ impl eframe::App for UI {
                     metric(ui, "TX", fmt_bytes(self.total_network_tx));
                     metric(ui, "RX", fmt_bytes(self.total_network_rx));
                 });
-                ui.add_space(2.0);
+                ui.add_space(3.0);
+
+                ui.horizontal(|ui| {
+                    metric(
+                        ui,
+                        "KP",
+                        KEYPRESS_COUNT
+                            .load(std::sync::atomic::Ordering::Relaxed)
+                            .to_string(),
+                    );
+                    metric(
+                        ui,
+                        "MC",
+                        MOUSECLICK_COUNT
+                            .load(std::sync::atomic::Ordering::Relaxed)
+                            .to_string(),
+                    );
+                });
+                ui.add_space(4.0);
 
                 ui.label(
                     RichText::new("brewed with love ♡.")
