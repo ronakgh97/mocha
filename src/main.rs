@@ -1,5 +1,6 @@
 pub mod monitor;
 pub mod ui;
+
 use anyhow::Result;
 
 fn main() -> Result<()> {
@@ -11,21 +12,22 @@ fn main() -> Result<()> {
         sys,
         net,
         disks,
-        12,
-        std::time::Duration::from_secs(1),
+        24,
+        std::time::Duration::from_millis(750),
     )?;
 
     let options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()
             .with_decorations(false)
             .with_transparent(false)
+            .with_resizable(false)
             .with_always_on_top()
-            .with_inner_size([200.0, 140.0]),
+            .with_inner_size([200.0, 160.0]),
         ..Default::default()
     };
 
     eframe::run_native(
-        "mocha",
+        "mocha ☕",
         options,
         Box::new(|cc| Ok(Box::new(ui::UI::new(cc, rx)))),
     )?;

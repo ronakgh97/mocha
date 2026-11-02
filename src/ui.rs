@@ -22,7 +22,7 @@ impl UI {
         let ctx = cc.egui_ctx.clone();
         ctx.request_repaint();
         Self {
-            app_name: "mocha ☕".to_string(),
+            app_name: "mocha☕".to_string(),
             app_tagline: "a sneak peak into your machine.".to_string(),
 
             cpu_usage: 0.0,
@@ -55,10 +55,10 @@ impl eframe::App for UI {
 
         // let width = ui.available_width();
         // let height = ui.available_height();
-        egui::Frame::NONE
+        egui::Frame::default()
             .fill(Color32::from_rgb(35, 29, 31))
             .corner_radius(16.0)
-            .inner_margin(12.0)
+            .inner_margin(10.0)
             .show(ui, |ui| {
                 // enable dragging the window by clicking anywhere on the window
                 if ui
@@ -68,14 +68,25 @@ impl eframe::App for UI {
                     ui.ctx().send_viewport_cmd(ViewportCommand::StartDrag);
                 }
 
+                let ascii = match self.cpu_usage {
+                    x if x >= 80.0 => "(•ˋ_ˊ•)?!",
+                    x if x >= 60.0 => "(✿◡‿◡)",
+                    x if x >= 40.0 => "(✿◕‿◕✿)",
+                    _ => "(◕‿◕)",
+                };
+
                 // app title and tagline
-                ui.label(
-                    RichText::new(&self.app_name)
-                        .size(16.0)
-                        .color(accent_1)
-                        .strong()
-                        .monospace(),
-                );
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new(&self.app_name)
+                            .size(16.0)
+                            .color(accent_1)
+                            .strong()
+                            .monospace(),
+                    );
+                    ui.add_space(2.0);
+                    ui.label(RichText::new(ascii).size(14.0).color(accent_2));
+                });
                 ui.label(
                     RichText::new(&self.app_tagline)
                         .size(12.0)
@@ -109,10 +120,18 @@ impl eframe::App for UI {
                 ui.add_space(4.0);
 
                 ui.horizontal(|ui| {
-                    metric(ui, "TX", format!("{:.1} Mbps", self.network_tx));
-                    metric(ui, "RX", format!("{:.1} Mbps", self.network_rx));
+                    metric(ui, "TX", format!("{:.1} Mb/s", self.network_tx));
+                    metric(ui, "RX", format!("{:.1} Mb/s", self.network_rx));
                 });
-                ui.add_space(4.0);
+                ui.add_space(2.0);
+
+                ui.label(
+                    RichText::new("brewed with love ♡")
+                        .size(12.0)
+                        .color(dim)
+                        .weak()
+                        .italics(),
+                );
             });
 
         ui.ctx().request_repaint();
