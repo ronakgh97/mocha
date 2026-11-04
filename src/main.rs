@@ -33,14 +33,15 @@ fn main() -> Result<()> {
             .with_decorations(false)
             .with_transparent(false)
             .with_always_on_top()
-            .with_inner_size([225.0, 210.0]),
+            .with_inner_size([298.0, 186.0])
+            .with_min_inner_size([298.0, 186.0]),
         ..Default::default()
     };
 
     eframe::run_native(
         "mocha ☕",
         options,
-        Box::new(|cc| Ok(Box::new(ui::Gui::new(cc, rx, shutdown_requested)))),
+        Box::new(|cc| Ok(Box::new(ui::UI::new(cc, rx, shutdown_requested)))),
     )?;
 
     if let Err(e) = metrics_handle.join() {

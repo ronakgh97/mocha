@@ -9,6 +9,7 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 use sysinfo::{CpuRefreshKind, Disks, Networks, System};
 
+#[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct MetricsSnapshot {
     pub uptime: u64,
